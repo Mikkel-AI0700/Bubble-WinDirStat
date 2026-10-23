@@ -1,0 +1,6 @@
+{
+  "name": "BubbleDirStat — Visual Disk Usage Analyzer",
+  "description": "A proportional bubble-packing disk usage analyzer and Python Tkinter desktop application suite for visualizing directory and file storage footprints.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

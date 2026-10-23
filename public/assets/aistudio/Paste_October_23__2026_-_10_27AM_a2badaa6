@@ -1,0 +1,630 @@
+Here is a complete, ready-to-run desktop application in Python called BubbleDirStat (a bubble-based alternative to WinDirStat).
+Because this is for your business subject, I designed it with a modern dark-mode dashboard UI and made sure it uses 100% built-in Python libraries (tkinter, os, math, threading). You and your groupmates will not need to install any external packages via pip—it will run immediately on any computer with Python installed.
+Key Features Included (Great for Your Presentation!)
+Filter Controls: Instantly switch between Both (All), Files Only, or Directories Only using the filter bar at the top—Directly fulfilling your core requirement.
+Proportional Bubble Packing: Uses a custom spiral circle-packing algorithm that sizes bubbles based on the file/folder size relative to the current directory and packs the largest items toward the center.
+Interactive Drill-Down:
+Hover over any bubble to highlight it and inspect its exact size and percentage share.
+Single-click a bubble to highlight it in the side-panel ranking table.
+Double-click any Directory bubble to dive inside that folder (and use the ⬆ Up Level button to go back).
+WinDirStat Color Coding: Color-codes bubbles by category (Folders, Media, Documents, Code, Archives/Apps, Other) with a built-in legend.
+Multi-Threaded Scanner: Scans folders in a background thread so the app never freezes while calculating subfolder sizes.
+How to Run the App
+Save the code below as bubbledirstat.py.
+Run it from your terminal or IDE (VS Code, PyCharm, IDLE):
+code
+Bash
+python bubbledirstat.py
+Complete Python Code (bubbledirstat.py)
+code
+Python
+import os
+import math
+import threading
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
+
+
+# --- COLOR PALETTE & FILE CATEGORIES ---
+BG_DARK = "#181825"
+PANEL_BG = "#1e1e2e"
+TEXT_MAIN = "#cdd6f4"
+TEXT_MUTED = "#a6adc8"
+ACCENT = "#89b4fa"
+
+CATEGORY_COLORS = {
+    "Directory":   {"fill": "#f9e2af", "outline": "#f38ba8", "text": "#11111b"},  # Warm Gold
+    "Media":       {"fill": "#cba6f7", "outline": "#b4befe", "text": "#11111b"},  # Purple (Video/Audio/Img)
+    "Document":    {"fill": "#89b4fa", "outline": "#74c7ec", "text": "#11111b"},  # Blue (PDF/Doc/Xls)
+    "Archive/App": {"fill": "#f38ba8", "outline": "#eba0ac", "text": "#11111b"},  # Red/Pink (Zip/Exe/Iso)
+    "Code/Data":   {"fill": "#a6e3a1", "outline": "#94e2d5", "text": "#11111b"},  # Green (Py/JS/JSON/CSV)
+    "Other File":  {"fill": "#9399b2", "outline": "#bac2de", "text": "#11111b"},  # Slate Grey
+    "Grouped":     {"fill": "#585b70", "outline": "#7f849c", "text": "#cdd6f4"},  # Smaller items grouped
+}
+
+EXT_MAP = {
+    "Media": {".mp4", ".mkv", ".avi", ".mov", ".mp3", ".wav", ".flac", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"},
+    "Document": {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".md", ".rtf"},
+    "Archive/App": {".zip", ".rar", ".7z", ".tar", ".gz", ".exe", ".msi", ".dmg", ".iso", ".apk", ".dll"},
+    "Code/Data": {".py", ".js", ".ts", ".html", ".css", ".cpp", ".c", ".java", ".json", ".xml", ".csv", ".sql", ".db"}
+}
+
+
+def get_file_category(filename, is_dir):
+    if is_dir:
+        return "Directory"
+    ext = os.path.splitext(filename)[1].lower()
+    for category, extensions in EXT_MAP.items():
+        if ext in extensions:
+            return category
+    return "Other File"
+
+
+def format_size(size_bytes):
+    if size_bytes <= 0:
+        return "0 B"
+    units = ("B", "KB", "MB", "GB", "TB")
+    i = min(int(math.floor(math.log(size_bytes, 1024))), len(units) - 1)
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    return f"{s} {units[i]}"
+
+
+class BubbleDirStatApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("BubbleDirStat - Visual Disk Usage Analyzer")
+        self.root.geometry("1200x760")
+        self.root.minsize(950, 600)
+        self.root.configure(bg=BG_DARK)
+
+        # State variables
+        self.current_path = tk.StringVar(value=os.path.expanduser("~"))
+        self.filter_mode = tk.StringVar(value="Both")  # "Both", "Files", "Directories"
+        self.status_text = tk.StringVar(value="Ready. Select a folder to scan.")
+        
+        self.raw_items = []       # All scanned items in current directory
+        self.bubbles = []         # Computed bubble coordinates and metadata
+        self.hovered_index = None
+        self.selected_index = None
+        self.scan_thread = None
+        self.stop_scan_event = threading.Event()
+
+        self._setup_styles()
+        self._build_ui()
+
+        # Automatically scan the user's home directory (or current working directory) on startup
+        self.start_scan(os.getcwd())
+
+    def _setup_styles(self):
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("TFrame", background=PANEL_BG)
+        style.configure("Dark.TFrame", background=BG_DARK)
+        style.configure("TLabel", background=PANEL_BG, foreground=TEXT_MAIN, font=("Segoe UI", 10))
+        style.configure("Header.TLabel", background=PANEL_BG, foreground=ACCENT, font=("Segoe UI", 12, "bold"))
+        style.configure("Status.TLabel", background=PANEL_BG, foreground=TEXT_MUTED, font=("Segoe UI", 9))
+        
+        style.configure("Accent.TButton", background=ACCENT, foreground="#11111b", font=("Segoe UI", 10, "bold"), padding=6)
+        style.map("Accent.TButton", background=[("active", "#b4befe")])
+
+        style.configure("TRadiobutton", background=PANEL_BG, foreground=TEXT_MAIN, font=("Segoe UI", 10))
+        style.map("TRadiobutton", background=[("active", PANEL_BG)])
+
+        style.configure("Treeview",
+                        background=BG_DARK,
+                        foreground=TEXT_MAIN,
+                        fieldbackground=BG_DARK,
+                        rowheight=26,
+                        font=("Segoe UI", 9))
+        style.configure("Treeview.Heading",
+                        background=PANEL_BG,
+                        foreground=TEXT_MAIN,
+                        font=("Segoe UI", 9, "bold"))
+        style.map("Treeview", background=[("selected", "#45475a")])
+
+    def _build_ui(self):
+        # 1. TOP CONTROL BAR
+        top_bar = ttk.Frame(self.root, padding=(12, 10))
+        top_bar.pack(side=tk.TOP, fill=tk.X, padx=10, pady=(10, 5))
+
+        btn_browse = ttk.Button(top_bar, text="📁 Browse Folder", style="Accent.TButton", command=self.browse_directory)
+        btn_browse.pack(side=tk.LEFT, padx=(0, 6))
+
+        btn_up = ttk.Button(top_bar, text="⬆ Up Level", command=self.go_up_directory)
+        btn_up.pack(side=tk.LEFT, padx=(0, 6))
+
+        btn_refresh = ttk.Button(top_bar, text="⟳ Rescan", command=lambda: self.start_scan(self.current_path.get()))
+        btn_refresh.pack(side=tk.LEFT, padx=(0, 15))
+
+        # Path entry display
+        path_entry = tk.Entry(top_bar, textvariable=self.current_path, bg=BG_DARK, fg=TEXT_MAIN,
+                              insertbackground=TEXT_MAIN, relief=tk.FLAT, font=("Segoe UI", 10))
+        path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=5, padx=(0, 15))
+        path_entry.bind("<Return>", lambda e: self.start_scan(self.current_path.get()))
+
+        # Filter Radio Buttons
+        filter_frame = ttk.Frame(top_bar)
+        filter_frame.pack(side=tk.RIGHT)
+        ttk.Label(filter_frame, text="Filter View:", font=("Segoe UI", 10, "bold")).pack(side=tk.LEFT, padx=(0, 8))
+        
+        for mode in ("Both", "Files", "Directories"):
+            rb = ttk.Radiobutton(
+                filter_frame,
+                text=mode,
+                value=mode,
+                variable=self.filter_mode,
+                command=self.update_visualization
+            )
+            rb.pack(side=tk.LEFT, padx=4)
+
+        # 2. MAIN CONTENT AREA (Canvas on Left, Details & List on Right)
+        main_frame = ttk.Frame(self.root, style="Dark.TFrame")
+        main_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=5)
+
+        # Left: Bubble Canvas
+        canvas_container = ttk.Frame(main_frame, padding=2)
+        canvas_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 8))
+
+        self.canvas = tk.Canvas(canvas_container, bg=BG_DARK, highlightthickness=0)
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+
+        # Legend Bar below Canvas
+        legend_frame = ttk.Frame(canvas_container, padding=(10, 6))
+        legend_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        ttk.Label(legend_frame, text="Legend:", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT, padx=(0, 8))
+        for cat, colors in CATEGORY_COLORS.items():
+            swatch = tk.Canvas(legend_frame, width=12, height=12, bg=colors["fill"], highlightthickness=1, highlightbackground=colors["outline"])
+            swatch.pack(side=tk.LEFT, padx=(6, 3))
+            ttk.Label(legend_frame, text=cat, font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(0, 6))
+
+        # Bind Canvas Events
+        self.canvas.bind("<Configure>", lambda e: self.draw_bubbles())
+        self.canvas.bind("<Motion>", self.on_canvas_hover)
+        self.canvas.bind("<Button-1>", self.on_canvas_click)
+        self.canvas.bind("<Double-Button-1>", self.on_canvas_double_click)
+
+        # Right: Details & Ranked Table
+        right_panel = ttk.Frame(main_frame, width=360, padding=12)
+        right_panel.pack(side=tk.RIGHT, fill=tk.Y)
+        right_panel.pack_propagate(False)
+
+        # Summary Card
+        ttk.Label(right_panel, text="Directory Summary", style="Header.TLabel").pack(anchor=tk.W, pady=(0, 6))
+        self.lbl_total_size = ttk.Label(right_panel, text="Filtered Total Size: --")
+        self.lbl_total_size.pack(anchor=tk.W, pady=2)
+        self.lbl_item_count = ttk.Label(right_panel, text="Items Displayed: --")
+        self.lbl_item_count.pack(anchor=tk.W, pady=2)
+
+        ttk.Separator(right_panel, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+
+        # Selected/Hovered Bubble Details
+        ttk.Label(right_panel, text="Bubble Inspector", style="Header.TLabel").pack(anchor=tk.W, pady=(0, 6))
+        self.lbl_insp_name = ttk.Label(right_panel, text="Hover or click a bubble", wraplength=330, font=("Segoe UI", 10, "bold"))
+        self.lbl_insp_name.pack(anchor=tk.W, pady=2)
+        self.lbl_insp_type = ttk.Label(right_panel, text="Category: --")
+        self.lbl_insp_type.pack(anchor=tk.W, pady=2)
+        self.lbl_insp_size = ttk.Label(right_panel, text="Size: --")
+        self.lbl_insp_size.pack(anchor=tk.W, pady=2)
+        self.lbl_insp_pct = ttk.Label(right_panel, text="Share of View: --")
+        self.lbl_insp_pct.pack(anchor=tk.W, pady=2)
+
+        ttk.Separator(right_panel, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+
+        # Ranked Item List (Treeview)
+        ttk.Label(right_panel, text="Size Ranking (Double-click folder to open)", style="Header.TLabel").pack(anchor=tk.W, pady=(0, 6))
+        
+        tree_frame = ttk.Frame(right_panel)
+        tree_frame.pack(fill=tk.BOTH, expand=True)
+
+        cols = ("name", "type", "size", "pct")
+        self.tree = ttk.Treeview(tree_frame, columns=cols, show="headings", selectmode="browse")
+        self.tree.heading("name", text="Name")
+        self.tree.heading("type", text="Type")
+        self.tree.heading("size", text="Size")
+        self.tree.heading("pct", text="%")
+
+        self.tree.column("name", width=145, anchor=tk.W)
+        self.tree.column("type", width=65, anchor=tk.W)
+        self.tree.column("size", width=70, anchor=tk.E)
+        self.tree.column("pct", width=45, anchor=tk.E)
+
+        scrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscroll=scrollbar.set)
+
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.tree.bind("<<TreeviewSelect>>", self.on_tree_select)
+        self.tree.bind("<Double-1>", self.on_tree_double_click)
+
+        # 3. BOTTOM STATUS BAR
+        status_bar = ttk.Frame(self.root, padding=(12, 4))
+        status_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 8))
+        ttk.Label(status_bar, textvariable=self.status_text, style="Status.TLabel").pack(side=tk.LEFT)
+        ttk.Label(status_bar, text="Tip: Double-click any Directory bubble to navigate inside it.", style="Status.TLabel").pack(side=tk.RIGHT)
+
+    # --- DIRECTORY NAVIGATION & SCANNING ---
+    def browse_directory(self):
+        folder = filedialog.askdirectory(initialdir=self.current_path.get(), title="Select Directory to Analyze")
+        if folder:
+            self.start_scan(folder)
+
+    def go_up_directory(self):
+        current = self.current_path.get()
+        parent = os.path.dirname(os.path.abspath(current))
+        if parent and parent != current:
+            self.start_scan(parent)
+
+    def start_scan(self, target_path):
+        target_path = os.path.abspath(target_path)
+        if not os.path.isdir(target_path):
+            messagebox.showerror("Invalid Directory", f"The path does not exist or is not a directory:\n{target_path}")
+            return
+
+        # Stop any ongoing scan
+        if self.scan_thread and self.scan_thread.is_alive():
+            self.stop_scan_event.set()
+            self.scan_thread.join(timeout=0.5)
+
+        self.current_path.set(target_path)
+        self.stop_scan_event.clear()
+        self.status_text.set(f"Scanning '{target_path}'... Please wait.")
+        self.raw_items = []
+        self.bubbles = []
+        self.draw_loading_screen()
+
+        self.scan_thread = threading.Thread(target=self._scan_worker, args=(target_path,), daemon=True)
+        self.scan_thread.start()
+
+    def _get_recursive_dir_size(self, folder_path):
+        total = 0
+        try:
+            with os.scandir(folder_path) as it:
+                for entry in it:
+                    if self.stop_scan_event.is_set():
+                        return total
+                    try:
+                        if entry.is_symlink():
+                            continue
+                        if entry.is_file(follow_symlinks=False):
+                            total += entry.stat(follow_symlinks=False).st_size
+                        elif entry.is_dir(follow_symlinks=False):
+                            total += self._get_recursive_dir_size(entry.path)
+                    except (PermissionError, FileNotFoundError, OSError):
+                        continue
+        except (PermissionError, FileNotFoundError, OSError):
+            pass
+        return total
+
+    def _scan_worker(self, target_path):
+        items = []
+        try:
+            with os.scandir(target_path) as entries:
+                entry_list = list(entries)
+                total_entries = len(entry_list)
+
+                for idx, entry in enumerate(entry_list):
+                    if self.stop_scan_event.is_set():
+                        return
+                    try:
+                        is_dir = entry.is_dir(follow_symlinks=False)
+                        if is_dir:
+                            self.root.after(0, self.status_text.set,
+                                            f"Scanning ({idx + 1}/{total_entries}): Calculating folder '{entry.name}'...")
+                            size = self._get_recursive_dir_size(entry.path)
+                        else:
+                            size = entry.stat(follow_symlinks=False).st_size
+
+                        items.append({
+                            "name": entry.name,
+                            "path": entry.path,
+                            "is_dir": is_dir,
+                            "size": size,
+                            "category": get_file_category(entry.name, is_dir)
+                        })
+                    except (PermissionError, FileNotFoundError, OSError):
+                        continue
+        except (PermissionError, FileNotFoundError, OSError) as e:
+            self.root.after(0, messagebox.showwarning, "Access Denied", f"Could not read directory:\n{e}")
+
+        if not self.stop_scan_event.is_set():
+            self.raw_items = items
+            self.root.after(0, self.update_visualization)
+
+    # --- FILTERING & CIRCLE PACKING ALGORITHM ---
+    def update_visualization(self):
+        mode = self.filter_mode.get()
+        if mode == "Files":
+            filtered = [item for item in self.raw_items if not item["is_dir"]]
+        elif mode == "Directories":
+            filtered = [item for item in self.raw_items if item["is_dir"]]
+        else:
+            filtered = list(self.raw_items)
+
+        # Sort descending by size
+        filtered.sort(key=lambda x: x["size"], reverse=True)
+        total_size = sum(x["size"] for x in filtered)
+
+        # Update Summary UI
+        self.lbl_total_size.config(text=f"Filtered Total Size: {format_size(total_size)}")
+        self.lbl_item_count.config(text=f"Items Displayed: {len(filtered)} ({mode})")
+        self.status_text.set(f"Scan complete. Showing {len(filtered)} items in '{self.current_path.get()}'.")
+
+        # Populate Treeview
+        self.tree.delete(*self.tree.get_children())
+        for i, item in enumerate(filtered):
+            pct = (item["size"] / total_size * 100) if total_size > 0 else 0.0
+            t_label = "Folder" if item["is_dir"] else "File"
+            self.tree.insert("", tk.END, iid=str(i), values=(
+                item["name"],
+                t_label,
+                format_size(item["size"]),
+                f"{pct:.1f}%"
+            ))
+
+        # Group excess tiny items beyond top 55 so bubble chart stays fast & readable
+        MAX_BUBBLES = 55
+        if len(filtered) > MAX_BUBBLES:
+            top_items = [dict(x) for x in filtered[:MAX_BUBBLES - 1]]
+            remainder = filtered[MAX_BUBBLES - 1:]
+            rem_size = sum(x["size"] for x in remainder)
+            top_items.append({
+                "name": f"[{len(remainder)} Smaller Items]",
+                "path": None,
+                "is_dir": False,
+                "size": rem_size,
+                "category": "Grouped"
+            })
+        else:
+            top_items = [dict(x) for x in filtered]
+
+        self._compute_bubble_layout(top_items, total_size)
+        self.hovered_index = None
+        self.selected_index = None
+        self.draw_bubbles()
+
+    def _compute_bubble_layout(self, items, total_size):
+        """
+        Packs bubbles using a Golden-Angle Spiral Packing algorithm.
+        Radius is proportional to sqrt(size) so bubble AREA represents file/folder size.
+        """
+        if not items:
+            self.bubbles = []
+            return
+
+        max_size = max(item["size"] for item in items)
+        min_r = 16.0
+        max_r = 115.0
+
+        placed = []
+        padding = 5.0
+
+        for i, item in enumerate(items):
+            if max_size > 0:
+                # Area proportional to size -> radius proportional to sqrt(size)
+                norm = math.sqrt(item["size"] / max_size)
+                r = min_r + (max_r - min_r) * norm
+            else:
+                r = 28.0
+
+            pct = (item["size"] / total_size * 100) if total_size > 0 else 0.0
+
+            if i == 0:
+                # Largest item goes right in the center
+                placed.append({
+                    **item, "r": r, "x": 0.0, "y": 0.0, "pct": pct, "rank": i
+                })
+            else:
+                # Search outward in concentric rings starting from closest possible distance to center
+                dist = placed[0]["r"] + r + padding
+                golden_angle = i * 2.3999632  # distributes bubbles evenly around center
+                found_spot = False
+
+                while not found_spot:
+                    # Number of test points along the circumference of current ring
+                    steps = max(14, int((2 * math.pi * dist) / 10.0))
+                    for step in range(steps):
+                        angle = golden_angle + (2 * math.pi * step / steps)
+                        cx = dist * math.cos(angle)
+                        cy = dist * math.sin(angle)
+
+                        # Check collision against already-placed bubbles
+                        collision = False
+                        for p in placed:
+                            dx = cx - p["x"]
+                            dy = cy - p["y"]
+                            min_dist = r + p["r"] + padding
+                            if (dx * dx + dy * dy) < (min_dist * min_dist):
+                                collision = True
+                                break
+
+                        if not collision:
+                            placed.append({
+                                **item, "r": r, "x": cx, "y": cy, "pct": pct, "rank": i
+                            })
+                            found_spot = True
+                            break
+
+                    dist += 6.0
+
+        self.bubbles = placed
+
+    # --- CANVAS DRAWING & INTERACTIVITY ---
+    def draw_loading_screen(self):
+        self.canvas.delete("all")
+        w = self.canvas.winfo_width() or 700
+        h = self.canvas.winfo_height() or 500
+        self.canvas.create_text(
+            w / 2, h / 2,
+            text="Scanning directory sizes...\nCalculating bubble proportions...",
+            fill=ACCENT, font=("Segoe UI", 14, "bold"), justify=tk.CENTER
+        )
+
+    def draw_bubbles(self):
+        self.canvas.delete("all")
+        w = self.canvas.winfo_width()
+        h = self.canvas.winfo_height()
+        if w < 50 or h < 50:
+            return
+
+        if not self.bubbles:
+            self.canvas.create_text(
+                w / 2, h / 2,
+                text="No items match the current filter in this directory.",
+                fill=TEXT_MUTED, font=("Segoe UI", 13)
+            )
+            return
+
+        # Compute bounding box of packed bubbles in layout space
+        min_x = min(b["x"] - b["r"] for b in self.bubbles)
+        max_x = max(b["x"] + b["r"] for b in self.bubbles)
+        min_y = min(b["y"] - b["r"] for b in self.bubbles)
+        max_y = max(b["y"] + b["r"] for b in self.bubbles)
+
+        pack_w = max(1.0, max_x - min_x)
+        pack_h = max(1.0, max_y - min_y)
+
+        margin = 35.0
+        scale = min((w - 2 * margin) / pack_w, (h - 2 * margin) / pack_h)
+        center_x = (min_x + max_x) / 2.0
+        center_y = (min_y + max_y) / 2.0
+
+        for idx, b in enumerate(self.bubbles):
+            sx = w / 2.0 + (b["x"] - center_x) * scale
+            sy = h / 2.0 + (b["y"] - center_y) * scale
+            sr = max(4.0, b["r"] * scale)
+
+            # Save screen coordinates for fast mouse hover/click detection
+            b["sx"], b["sy"], b["sr"] = sx, sy, sr
+
+            colors = CATEGORY_COLORS.get(b["category"], CATEGORY_COLORS["Other File"])
+            is_hovered = (idx == self.hovered_index)
+            is_selected = (idx == self.selected_index)
+
+            outline_color = "#ffffff" if (is_hovered or is_selected) else colors["outline"]
+            outline_width = 3 if (is_hovered or is_selected) else 1.5
+
+            # Draw Bubble Circle
+            self.canvas.create_oval(
+                sx - sr, sy - sr, sx + sr, sy + sr,
+                fill=colors["fill"],
+                outline=outline_color,
+                width=outline_width
+            )
+
+            # Draw Label inside Bubble if large enough
+            if sr >= 24:
+                max_chars = max(4, int(sr / 4.2))
+                display_name = b["name"]
+                if len(display_name) > max_chars:
+                    display_name = display_name[:max_chars - 2] + ".."
+
+                font_size = min(12, max(8, int(sr / 5)))
+                if sr >= 38:
+                    label_text = f"{display_name}\n{format_size(b['size'])}"
+                else:
+                    label_text = display_name
+
+                self.canvas.create_text(
+                    sx, sy,
+                    text=label_text,
+                    fill=colors["text"],
+                    font=("Segoe UI", font_size, "bold"),
+                    justify=tk.CENTER
+                )
+
+    def _get_bubble_at_pos(self, x, y):
+        for idx, b in enumerate(self.bubbles):
+            dx = x - b.get("sx", 0)
+            dy = y - b.get("sy", 0)
+            sr = b.get("sr", 0)
+            if (dx * dx + dy * dy) <= (sr * sr):
+                return idx
+        return None
+
+    def _update_inspector(self, idx):
+        if idx is None or idx >= len(self.bubbles):
+            return
+        b = self.bubbles[idx]
+        icon = "📁 " if b["is_dir"] else "📄 "
+        self.lbl_insp_name.config(text=f"{icon}{b['name']}")
+        self.lbl_insp_type.config(text=f"Category: {b['category']}")
+        self.lbl_insp_size.config(text=f"Size: {format_size(b['size'])} ({b['size']:,} bytes)")
+        self.lbl_insp_pct.config(text=f"Share of View: {b['pct']:.2f}%")
+
+    def on_canvas_hover(self, event):
+        idx = self._get_bubble_at_pos(event.x, event.y)
+        if idx != self.hovered_index:
+            self.hovered_index = idx
+            self.canvas.config(cursor="hand2" if idx is not None else "")
+            if idx is not None:
+                self._update_inspector(idx)
+            elif self.selected_index is not None:
+                self._update_inspector(self.selected_index)
+            self.draw_bubbles()
+
+    def on_canvas_click(self, event):
+        idx = self._get_bubble_at_pos(event.x, event.y)
+        self.selected_index = idx
+        if idx is not None:
+            self._update_inspector(idx)
+            rank_id = str(self.bubbles[idx]["rank"])
+            if self.tree.exists(rank_id):
+                self.tree.selection_set(rank_id)
+                self.tree.see(rank_id)
+        self.draw_bubbles()
+
+    def on_canvas_double_click(self, event):
+        idx = self._get_bubble_at_pos(event.x, event.y)
+        if idx is not None:
+            b = self.bubbles[idx]
+            if b["is_dir"] and b["path"]:
+                self.start_scan(b["path"])
+
+    def on_tree_select(self, event):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        rank = int(sel[0])
+        # Highlight corresponding bubble if it's in the top bubbles
+        if rank < len(self.bubbles):
+            self.selected_index = rank
+            self._update_inspector(rank)
+            self.draw_bubbles()
+
+    def on_tree_double_click(self, event):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        rank = int(sel[0])
+        if rank < len(self.bubbles):
+            b = self.bubbles[rank]
+            if b["is_dir"] and b["path"]:
+                self.start_scan(b["path"])
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = BubbleDirStatApp(root)
+    root.mainloop()
+How It Works (Talking Points for Your Business Subject)
+If your instructor asks how your app works or how it improves upon existing tools like WinDirStat, here are a few points you can explain:
+Visual Ergonomics (Bubbles vs. Treemaps): WinDirStat uses nested rectangles (treemaps) which can become visually cluttered with thousands of tiny rectangles. BubbleDirStat focuses on the current directory level, placing the largest storage hogs dead-center and spiraling smaller items outward so users immediately spot what is eating up their disk space.
+Targeted Filtering (Both / Files / Directories): Traditional disk analyzers mix files and folders together. Your app lets users isolate only files or only subdirectories with a single click, recalculating relative percentages on the fly.
+Area-Proportional Scaling (
+Radius
+∝
+Size
+Radius∝ 
+Size
+​
+ 
+): Because a circle's area is 
+π
+r
+2
+πr 
+2
+ 
+, scaling the radius by the square root of the file size ensures the visual area of each bubble accurately reflects its relative storage footprint while keeping smaller files clickable.

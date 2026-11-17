@@ -24,7 +24,7 @@ export const PRESET_DRIVES: VirtualDirPreset[] = [
     id: 'eng-workspace',
     label: 'Engineering & Python Project (E:)',
     rootPath: 'E:/Python_Desktop_Workspace',
-    description: 'BubbleDirStat desktop application source, PyInstaller dist bundles, SQLite datasets, and test fixtures.',
+    description: 'VIBOS desktop application source, PyInstaller dist bundles, SQLite datasets, and test fixtures.',
   },
 ];
 
@@ -73,7 +73,7 @@ export const VIRTUAL_DIRECTORIES: Record<string, RawDirItem[]> = {
     makeItem('C:/Users/GroupPresentation/Business_Analytics_Suite', 'Market_Research_Compendium.pdf', false, 21_400_000),
     makeItem('C:/Users/GroupPresentation/Business_Analytics_Suite', 'System_Memory_Dump.dmp', false, 11_200_000),
     makeItem('C:/Users/GroupPresentation/Business_Analytics_Suite', 'Brand_Identity_Banner.png', false, 2_480_000),
-    makeItem('C:/Users/GroupPresentation/Business_Analytics_Suite', 'bubbledirstat.py', false, 28_400),
+    makeItem('C:/Users/GroupPresentation/Business_Analytics_Suite', 'VIBOS_APP.py', false, 28_400),
   ],
   'C:/Users/GroupPresentation/Business_Analytics_Suite/Marketing_Video_Assets': [
     makeItem('C:/Users/GroupPresentation/Business_Analytics_Suite/Marketing_Video_Assets', 'Raw_Camera_Red_Footage', true, 780_000_000),
@@ -108,7 +108,7 @@ export const VIRTUAL_DIRECTORIES: Record<string, RawDirItem[]> = {
   'C:/Users/GroupPresentation/Business_Analytics_Suite/Product_Prototype_Builds': [
     makeItem('C:/Users/GroupPresentation/Business_Analytics_Suite/Product_Prototype_Builds', 'Windows_x64_Installer.msi', false, 225_000_000),
     makeItem('C:/Users/GroupPresentation/Business_Analytics_Suite/Product_Prototype_Builds', 'macOS_Universal_Bundle.dmg', false, 185_000_000),
-    makeItem('C:/Users/GroupPresentation/Business_Analytics_Suite/Product_Prototype_Builds', 'BubbleDirStat_Standalone.exe', false, 82_000_000),
+    makeItem('C:/Users/GroupPresentation/Business_Analytics_Suite/Product_Prototype_Builds', 'VIBOS_Standalone.exe', false, 82_000_000),
     makeItem('C:/Users/GroupPresentation/Business_Analytics_Suite/Product_Prototype_Builds', 'Debug_Symbols_Archive.7z', false, 48_000_000),
   ],
   'C:/Users/GroupPresentation/Business_Analytics_Suite/Q4_Financial_Models': [
@@ -165,12 +165,12 @@ export const VIRTUAL_DIRECTORIES: Record<string, RawDirItem[]> = {
     makeItem('E:/Python_Desktop_Workspace', 'virtual_env_cache.zip', false, 48_500_000),
     makeItem('E:/Python_Desktop_Workspace', 'Filesystem_Index_Snapshot.db', false, 14_200_000),
     makeItem('E:/Python_Desktop_Workspace', 'Architecture_Whitepaper.pdf', false, 3_800_000),
-    makeItem('E:/Python_Desktop_Workspace', 'bubbledirstat.py', false, 28_400),
+    makeItem('E:/Python_Desktop_Workspace', 'VIBOS_APP.py', false, 28_400),
     makeItem('E:/Python_Desktop_Workspace', 'README_PRESENTATION.md', false, 12_600),
   ],
   'E:/Python_Desktop_Workspace/dist_executables': [
-    makeItem('E:/Python_Desktop_Workspace/dist_executables', 'BubbleDirStat_Win11_x64.exe', false, 195_000_000),
-    makeItem('E:/Python_Desktop_Workspace/dist_executables', 'BubbleDirStat_macOS_ARM64.dmg', false, 190_000_000),
+    makeItem('E:/Python_Desktop_Workspace/dist_executables', 'VIBOS_Win11_x64.exe', false, 195_000_000),
+    makeItem('E:/Python_Desktop_Workspace/dist_executables', 'VIBOS_macOS_ARM64.dmg', false, 190_000_000),
   ],
   'E:/Python_Desktop_Workspace/benchmark_datasets': [
     makeItem('E:/Python_Desktop_Workspace/benchmark_datasets', 'synthetic_100k_files_tree.json', false, 130_000_000),
@@ -252,3 +252,23 @@ export function buildVirtualTreeFromFileList(files: FileList): {
 
   return { rootPath, tree };
 }
+
+// A self-contained student Downloads example; every item is fictional.
+const downloads = 'Sample/Downloads';
+VIRTUAL_DIRECTORIES[downloads] = [
+  makeItem(downloads, 'Class recordings', true, 1_200_000_000),
+  makeItem(downloads, 'Project files', true, 520_000_000),
+  makeItem(downloads, 'Game installer.exe', false, 850_000_000),
+  makeItem(downloads, 'Research articles.zip', false, 240_000_000),
+  makeItem(downloads, 'Lecture slides.pdf', false, 35_000_000),
+  makeItem(downloads, 'Assignment draft.docx', false, 8_000_000),
+  makeItem(downloads, 'Screenshot.png', false, 4_000_000),
+];
+VIRTUAL_DIRECTORIES[`${downloads}/Class recordings`] = [
+  makeItem(`${downloads}/Class recordings`, 'Week 1.mp4', false, 700_000_000),
+  makeItem(`${downloads}/Class recordings`, 'Week 2.mp4', false, 500_000_000),
+];
+VIRTUAL_DIRECTORIES[`${downloads}/Project files`] = [
+  makeItem(`${downloads}/Project files`, 'Presentation.mp4', false, 400_000_000),
+  makeItem(`${downloads}/Project files`, 'Sources.zip', false, 120_000_000),
+];

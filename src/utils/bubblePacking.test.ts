@@ -18,7 +18,7 @@ test('getFileCategory classifies directories and extensions accurately', () => {
   assert.equal(getFileCategory('demo_video.MP4', false), 'Media');
   assert.equal(getFileCategory('financial_model.xlsx', false), 'Document');
   assert.equal(getFileCategory('release_build.zip', false), 'Archive/App');
-  assert.equal(getFileCategory('bubbledirstat.py', false), 'Code/Data');
+  assert.equal(getFileCategory('VIBOS_APP.py', false), 'Code/Data');
   assert.equal(getFileCategory('unknown.xyz', false), 'Other File');
 });
 
@@ -72,7 +72,7 @@ test('filterAndRankItems groups excess items beyond MAX_BUBBLES (55)', () => {
   assert.equal(res.bubbleInputItems.length, MAX_BUBBLES);
   const lastBubble = res.bubbleInputItems[MAX_BUBBLES - 1];
   assert.equal(lastBubble.category, 'Grouped');
-  assert.equal(lastBubble.name, '[11 Smaller Items]');
+  assert.equal(lastBubble.name, '11 smaller items');
 });
 
 test('computeBubbleLayout places largest bubble at origin and packs without overlap', () => {
@@ -216,3 +216,21 @@ test('deleteDirectoryFromDirectoryMap removes selected directory, nested subdire
 });
 
 
+
+test('category filters update the real ranked items and grouped bucket', () => {
+  const items: RawDirItem[] = Array.from({length:70}, (_,i) => ({name:`file${i}`, path:`/root/${i}`, is_dir:i%2===0, size:i+1, category:i%2===0?'Directory':'Document'}));
+  assert.equal(filterAndRankItems(items, 'Both', 'Document').rankedItems.length,35);
+  assert.equal(filterAndRankItems(items, 'Directories', 'Document').rankedItems.length,0);
+  assert.equal(filterAndRankItems(items, 'Both', 'Grouped').rankedItems.length,16);
+  assert.equal(filterAndRankItems(items.slice(0,55), 'Both', 'Grouped').rankedItems.length,0);
+});
+
+test('layout reserves clearance for 12 percent hover growth', () => {
+  const items: RawDirItem[] = Array.from({length:55}, (_,i) => ({name:`file${i}`, path:`/root/${i}`, is_dir:false, size:i+1, category:'Document'}));
+  const filtered = filterAndRankItems(items, 'Both');
+  const bubbles = computeBubbleLayout(filtered.bubbleInputItems, filtered.totalSize);
+  for (let i=0;i<bubbles.length;i++) for (let j=i+1;j<bubbles.length;j++) {
+    const a=bubbles[i], b=bubbles[j];
+    assert.ok(Math.hypot(a.x-b.x, a.y-b.y)+1e-6 >= 1.12*(a.r+b.r));
+  }
+});

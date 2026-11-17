@@ -16,13 +16,13 @@ export interface CategoryColorSpec {
 }
 
 export const CATEGORY_COLORS: Record<FileCategory, CategoryColorSpec> = {
-  Directory:     { fill: '#f9e2af', outline: '#f38ba8', text: '#11111b' }, // Warm Gold
-  Media:         { fill: '#cba6f7', outline: '#b4befe', text: '#11111b' }, // Purple (Video/Audio/Img)
-  Document:      { fill: '#89b4fa', outline: '#74c7ec', text: '#11111b' }, // Blue (PDF/Doc/Xls)
-  'Archive/App': { fill: '#f38ba8', outline: '#eba0ac', text: '#11111b' }, // Red/Pink (Zip/Exe/Iso)
-  'Code/Data':   { fill: '#a6e3a1', outline: '#94e2d5', text: '#11111b' }, // Green (Py/JS/JSON/CSV)
-  'Other File':  { fill: '#9399b2', outline: '#bac2de', text: '#11111b' }, // Slate Grey
-  Grouped:       { fill: '#585b70', outline: '#7f849c', text: '#cdd6f4' }, // Smaller items grouped
+  Directory: { fill: '#b8cbd2', outline: '#607783', text: '#142639' },
+  Media: { fill: '#c2bad8', outline: '#77708b', text: '#142639' },
+  Document: { fill: '#a8c8dc', outline: '#64839b', text: '#142639' },
+  'Archive/App': { fill: '#ccc9ac', outline: '#827f67', text: '#142639' },
+  'Code/Data': { fill: '#a9caba', outline: '#668c7a', text: '#142639' },
+  'Other File': { fill: '#bcc5d0', outline: '#7a8796', text: '#142639' },
+  Grouped: { fill: '#7a8899', outline: '#a3afbf', text: '#101923' },
 };
 
 const EXT_MAP: Record<Exclude<FileCategory, 'Directory' | 'Other File' | 'Grouped'>, Set<string>> = {
@@ -87,7 +87,7 @@ export interface FilteredResult {
 
 export const MAX_BUBBLES = 55;
 
-export function filterAndRankItems(rawItems: RawDirItem[], mode: FilterMode): FilteredResult {
+export function filterAndRankItems(rawItems: RawDirItem[], mode: FilterMode, category: FileCategory | 'All' = 'All'): FilteredResult {
   let filtered: RawDirItem[];
   if (mode === 'Files') {
     filtered = rawItems.filter((item) => !item.is_dir);
@@ -98,6 +98,9 @@ export function filterAndRankItems(rawItems: RawDirItem[], mode: FilterMode): Fi
   }
 
   filtered.sort((a, b) => b.size - a.size);
+  // Grouped is a visualization bucket, not a file type: show the items it would contain.
+  if (category === 'Grouped') filtered = filtered.length > MAX_BUBBLES ? filtered.slice(MAX_BUBBLES - 1) : [];
+  else if (category !== 'All') filtered = filtered.filter(item => item.category === category);
   const totalSize = filtered.reduce((acc, item) => acc + item.size, 0);
 
   const rankedItems: RankedDirItem[] = filtered.map((item, idx) => ({
@@ -112,7 +115,7 @@ export function filterAndRankItems(rawItems: RawDirItem[], mode: FilterMode): Fi
     const remainder = rankedItems.slice(MAX_BUBBLES - 1);
     const remSize = remainder.reduce((acc, x) => acc + x.size, 0);
     topItems.push({
-      name: `[${remainder.length} Smaller Items]`,
+      name: `${remainder.length} smaller items`,
       path: null,
       is_dir: false,
       size: remSize,
@@ -133,7 +136,7 @@ export function filterAndRankItems(rawItems: RawDirItem[], mode: FilterMode): Fi
 }
 
 /**
- * Packs bubbles using the exact Golden-Angle Spiral Packing algorithm from BubbleDirStat.
+ * Packs bubbles using the exact Golden-Angle Spiral Packing algorithm from VIBOS.
  * Radius is proportional to sqrt(size) so bubble AREA represents file/folder size.
  */
 export function computeBubbleLayout(items: RankedDirItem[], totalSize: number): PackedBubble[] {
@@ -170,7 +173,7 @@ export function computeBubbleLayout(items: RankedDirItem[], totalSize: number): 
         rank: i,
       });
     } else {
-      let dist = placed[0].r + r + padding;
+      let dist = (placed[0].r + r) * 1.12 + padding;
       const goldenAngle = i * 2.3999632;
       let foundSpot = false;
 
@@ -185,7 +188,7 @@ export function computeBubbleLayout(items: RankedDirItem[], totalSize: number): 
           for (const p of placed) {
             const dx = cx - p.x;
             const dy = cy - p.y;
-            const minDist = r + p.r + padding;
+            const minDist = (r + p.r) * 1.12 + padding;
             if (dx * dx + dy * dy < minDist * minDist) {
               collision = true;
               break;
@@ -223,10 +226,10 @@ export function scaleBubblesToViewport(
     return [];
   }
 
-  const minX = Math.min(...bubbles.map((b) => b.x - b.r));
-  const maxX = Math.max(...bubbles.map((b) => b.x + b.r));
-  const minY = Math.min(...bubbles.map((b) => b.y - b.r));
-  const maxY = Math.max(...bubbles.map((b) => b.y + b.r));
+  const minX = Math.min(...bubbles.map((b) => b.x - b.r * 1.12));
+  const maxX = Math.max(...bubbles.map((b) => b.x + b.r * 1.12));
+  const minY = Math.min(...bubbles.map((b) => b.y - b.r * 1.12));
+  const maxY = Math.max(...bubbles.map((b) => b.y + b.r * 1.12));
 
   const packW = Math.max(1.0, maxX - minX);
   const packH = Math.max(1.0, maxY - minY);
@@ -239,8 +242,21 @@ export function scaleBubblesToViewport(
     ...b,
     sx: width / 2.0 + (b.x - centerX) * scale,
     sy: height / 2.0 + (b.y - centerY) * scale,
-    sr: Math.max(4.0, b.r * scale),
+    sr: b.r * scale,
   }));
+}
+
+/** Connect each bubble to its nearest earlier neighbor; lines are decorative. */
+export function bubbleConnections(bubbles: PackedBubble[]): Array<[PackedBubble, PackedBubble]> {
+  return bubbles.slice(1).map((b, index) => {
+    const prior = bubbles.slice(0, index + 1);
+    const nearest = prior.reduce((best, candidate) => {
+      const distance = (candidate.x - b.x) ** 2 + (candidate.y - b.y) ** 2;
+      const bestDistance = (best.x - b.x) ** 2 + (best.y - b.y) ** 2;
+      return distance < bestDistance ? candidate : best;
+    });
+    return [nearest, b];
+  });
 }
 
 export function getParentPath(currentPath: string): string | null {

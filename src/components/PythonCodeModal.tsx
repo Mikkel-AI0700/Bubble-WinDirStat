@@ -22,11 +22,11 @@ export const PythonCodeModal: React.FC<PythonCodeModalProps> = ({
 
   useEffect(() => {
     if (isOpen && !pythonCode) {
-      fetch('/bubbledirstat.py')
+      fetch('/VIBOS_APP.py')
         .then((res) => res.text())
         .then((text) => setPythonCode(text))
         .catch(() => {
-          setPythonCode('# Error loading bubbledirstat.py');
+          setPythonCode('# Error loading VIBOS_APP.py');
         });
     }
   }, [isOpen, pythonCode]);
@@ -48,7 +48,7 @@ export const PythonCodeModal: React.FC<PythonCodeModalProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'bubbledirstat.py';
+    a.download = 'VIBOS_APP.py';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -68,7 +68,7 @@ export const PythonCodeModal: React.FC<PythonCodeModalProps> = ({
           <div className="flex items-center gap-3">
             <Terminal className="w-4 h-4 text-[#a6e3a1]" />
             <h2 id="python-modal-title" className="text-base font-bold text-[#cdd6f4]">
-              BubbleDirStat — Standalone Python Desktop App & Presentation Guide
+              VIBOS — Standalone Python Desktop App & Presentation Guide
             </h2>
           </div>
           <button
@@ -93,7 +93,7 @@ export const PythonCodeModal: React.FC<PythonCodeModalProps> = ({
                   : 'text-[#a6adc8] hover:text-[#cdd6f4]'
               }`}
             >
-              Python Source (bubbledirstat.py)
+              Python Source (VIBOS_APP.py)
             </button>
             <button
               type="button"
@@ -123,7 +123,7 @@ export const PythonCodeModal: React.FC<PythonCodeModalProps> = ({
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold bg-[#a6e3a1] hover:bg-[#94e2d5] text-[#11111b] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              Download bubbledirstat.py
+              Download VIBOS_APP.py
             </button>
           </div>
         </div>
@@ -138,16 +138,16 @@ export const PythonCodeModal: React.FC<PythonCodeModalProps> = ({
                     Zero External Dependencies — Runs on Standard Python 3 (`tkinter`, `os`, `math`, `threading`)
                   </p>
                   <p className="text-[#a6adc8]">
-                    Save as <code className="text-[#f9e2af]">bubbledirstat.py</code> and run directly from terminal, VS Code, PyCharm, or IDLE.
+                    Save as <code className="text-[#f9e2af]">VIBOS_APP.py</code> and run directly from terminal, VS Code, PyCharm, or IDLE.
                   </p>
                 </div>
                 <code className="px-3 py-1.5 bg-[#11111b] border border-[#313244] rounded text-[#a6e3a1] font-mono whitespace-nowrap shrink-0">
-                  python bubbledirstat.py
+                  python VIBOS_APP.py
                 </code>
               </div>
 
               <pre className="p-4 bg-[#11111b] border border-[#313244] rounded-lg text-xs font-mono text-[#cdd6f4] overflow-x-auto leading-relaxed select-all">
-                <code>{pythonCode || 'Loading bubbledirstat.py...'}</code>
+                <code>{pythonCode || 'Loading VIBOS_APP.py...'}</code>
               </pre>
             </>
           ) : (
@@ -157,7 +157,7 @@ export const PythonCodeModal: React.FC<PythonCodeModalProps> = ({
                   How It Works — Talking Points for Your Business Subject Presentation
                 </h3>
                 <p className="text-xs text-[#a6adc8]">
-                  Use these key points when presenting BubbleDirStat to explain how it improves upon legacy disk usage tools like WinDirStat:
+                  Use these key points when presenting VIBOS to explain how it improves upon legacy disk usage tools like WinDirStat:
                 </p>
               </div>
 
@@ -168,7 +168,7 @@ export const PythonCodeModal: React.FC<PythonCodeModalProps> = ({
                     Bubbles vs. Nested Treemaps
                   </h4>
                   <p className="text-xs text-[#a6adc8] leading-relaxed">
-                    WinDirStat uses nested rectangles (treemaps) which become visually cluttered with thousands of tiny slivers. BubbleDirStat focuses on the current directory level, placing the largest storage hogs dead-center and spiraling smaller items outward so users immediately spot what is consuming disk space.
+                    WinDirStat uses nested rectangles (treemaps) which become visually cluttered with thousands of tiny slivers. VIBOS focuses on the current directory level, placing the largest storage hogs dead-center and spiraling smaller items outward so users immediately spot what is consuming disk space.
                   </p>
                 </div>
 
@@ -178,7 +178,7 @@ export const PythonCodeModal: React.FC<PythonCodeModalProps> = ({
                     Both / Files Only / Directories Only
                   </h4>
                   <p className="text-xs text-[#a6adc8] leading-relaxed">
-                    Traditional disk analyzers mix loose files and folders together. BubbleDirStat lets users isolate only loose files or only subdirectories with a single click in the top bar, recalculating relative storage percentages on the fly.
+                    Traditional disk analyzers mix loose files and folders together. VIBOS lets users isolate only loose files or only subdirectories with a single click in the top bar, recalculating relative storage percentages on the fly.
                   </p>
                 </div>
 
@@ -198,10 +198,10 @@ export const PythonCodeModal: React.FC<PythonCodeModalProps> = ({
                   Optional: Packaging as a Standalone Windows `.exe` or macOS `.app`
                 </h4>
                 <p className="text-xs text-[#a6adc8]">
-                  If you want to run BubbleDirStat on a classroom presentation computer without opening an IDE, you can bundle <code className="text-[#f9e2af]">bubbledirstat.py</code> into a single double-clickable desktop executable using PyInstaller:
+                  If you want to run VIBOS on a classroom presentation computer without opening an IDE, you can bundle <code className="text-[#f9e2af]">VIBOS_APP.py</code> into a single double-clickable desktop executable using PyInstaller:
                 </p>
                 <pre className="p-3 bg-[#11111b] border border-[#313244] rounded text-xs font-mono text-[#a6e3a1] overflow-x-auto">
-                  <code>pip install pyinstaller{'\n'}pyinstaller --onefile --windowed --name BubbleDirStat bubbledirstat.py</code>
+                  <code>pip install pyinstaller{'\n'}pyinstaller --onefile --windowed --name VIBOS VIBOS_APP.py</code>
                 </pre>
               </div>
             </div>

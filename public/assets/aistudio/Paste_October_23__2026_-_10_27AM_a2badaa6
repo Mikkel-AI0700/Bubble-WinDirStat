@@ -1,4 +1,4 @@
-Here is a complete, ready-to-run desktop application in Python called BubbleDirStat (a bubble-based alternative to WinDirStat).
+Here is a complete, ready-to-run desktop application in Python called VIBOS (a bubble-based alternative to WinDirStat).
 Because this is for your business subject, I designed it with a modern dark-mode dashboard UI and made sure it uses 100% built-in Python libraries (tkinter, os, math, threading). You and your groupmates will not need to install any external packages via pip—it will run immediately on any computer with Python installed.
 Key Features Included (Great for Your Presentation!)
 Filter Controls: Instantly switch between Both (All), Files Only, or Directories Only using the filter bar at the top—Directly fulfilling your core requirement.
@@ -10,12 +10,12 @@ Double-click any Directory bubble to dive inside that folder (and use the ⬆ Up
 WinDirStat Color Coding: Color-codes bubbles by category (Folders, Media, Documents, Code, Archives/Apps, Other) with a built-in legend.
 Multi-Threaded Scanner: Scans folders in a background thread so the app never freezes while calculating subfolder sizes.
 How to Run the App
-Save the code below as bubbledirstat.py.
+Save the code below as VIBOS_APP.py.
 Run it from your terminal or IDE (VS Code, PyCharm, IDLE):
 code
 Bash
-python bubbledirstat.py
-Complete Python Code (bubbledirstat.py)
+python VIBOS_APP.py
+Complete Python Code (VIBOS_APP.py)
 code
 Python
 import os
@@ -70,10 +70,10 @@ def format_size(size_bytes):
     return f"{s} {units[i]}"
 
 
-class BubbleDirStatApp:
+class VibosApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("BubbleDirStat - Visual Disk Usage Analyzer")
+        self.root.title("VIBOS - Visual Disk Usage Analyzer")
         self.root.geometry("1200x760")
         self.root.minsize(950, 600)
         self.root.configure(bg=BG_DARK)
@@ -606,11 +606,11 @@ class BubbleDirStatApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = BubbleDirStatApp(root)
+    app = VibosApp(root)
     root.mainloop()
 How It Works (Talking Points for Your Business Subject)
 If your instructor asks how your app works or how it improves upon existing tools like WinDirStat, here are a few points you can explain:
-Visual Ergonomics (Bubbles vs. Treemaps): WinDirStat uses nested rectangles (treemaps) which can become visually cluttered with thousands of tiny rectangles. BubbleDirStat focuses on the current directory level, placing the largest storage hogs dead-center and spiraling smaller items outward so users immediately spot what is eating up their disk space.
+Visual Ergonomics (Bubbles vs. Treemaps): WinDirStat uses nested rectangles (treemaps) which can become visually cluttered with thousands of tiny rectangles. VIBOS focuses on the current directory level, placing the largest storage hogs dead-center and spiraling smaller items outward so users immediately spot what is eating up their disk space.
 Targeted Filtering (Both / Files / Directories): Traditional disk analyzers mix files and folders together. Your app lets users isolate only files or only subdirectories with a single click, recalculating relative percentages on the fly.
 Area-Proportional Scaling (
 Radius
